@@ -1,5 +1,4 @@
 #include "../include/Layer.h"
-#include <stdexcept>
 
 Layer::Layer(int inputSize, int outputSize, 
              shared_ptr<IActivation> activationFunction, 

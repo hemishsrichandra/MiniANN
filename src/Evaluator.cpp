@@ -2,8 +2,6 @@
 #include <iostream>
 #include <iomanip>
 #include <cmath>
-#include <algorithm>
-#include <set>
 
 vector<int> Evaluator::getPredictedClasses(const Matrix& predictions) {
     int numOutputs = predictions.getRows();
