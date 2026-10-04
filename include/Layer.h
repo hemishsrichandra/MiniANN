@@ -1,17 +1,35 @@
-#ifndef MINIANN_LAYER_H
-#define MINIANN_LAYER_H
+#pragma once
+#include "Matrix.h"
+#include "Activation.h"
+#include "Optimizer.h"
+#include "WeightInitializer.h"
+#include <memory>
 
-#include<iostream>
-#include "Neuron.h"
 using namespace std;
 
-class Layer {
-private:
-    vector<Neuron> neurons;
-public:
-    Layer(int numNuerons, int numInputsPerNeuron, shared_ptr <IActivation > act);
-    vector <double > forward(const vector <double >& inputs);
-    vector<Neuron> &getNeurons();
-};
 
-#endif // MINIANN_LAYER_H
+class NeuralNetwork;
+
+class Layer {
+    friend class NeuralNetwork;
+private:
+    Matrix weights;
+    Matrix biases;
+    shared_ptr<IActivation> activation;
+    shared_ptr<IOptimizer> optimizer_weights;
+    shared_ptr<IOptimizer> optimizer_biases;
+    Matrix inputCache; // Store inputs for backprop
+    Matrix zCache;     // Store z (wx+b) for backprop
+
+public:
+    Layer(int inputSize, int outputSize, 
+          shared_ptr<IActivation> activationFunction, 
+          shared_ptr<IWeightInitializer> weightInitializer);
+
+    void setOptimizer(shared_ptr<IOptimizer> optWeights, shared_ptr<IOptimizer> optBiases);
+
+    Matrix forward(const Matrix& input);
+
+    Matrix getWeights() const { return weights; }
+    Matrix getBiases() const { return biases; }
+};

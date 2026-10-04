@@ -1,0 +1,18 @@
+# Object files
+*.o
+
+# Build directory
+build/
+
+# OS specific files
+.DS_Store
+
+# IDEs
+.vscode/
+
+# Executables
+miniann_app
+miniann_demo*
+miniann_tests*
+*.exe
+
