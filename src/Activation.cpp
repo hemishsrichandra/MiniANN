@@ -1,4 +1,4 @@
-#include "Activation.h"
+#include "../include/Activation.h"
 #include <cmath>
 
 Matrix Sigmoid::forward(const Matrix& input) {

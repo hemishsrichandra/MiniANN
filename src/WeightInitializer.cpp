@@ -1,4 +1,4 @@
-#include "WeightInitializer.h"
+#include "../include/WeightInitializer.h"
 #include <random>
 #include <cmath>
 

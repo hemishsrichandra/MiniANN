@@ -1,4 +1,4 @@
-#include "Layer.h"
+#include "../include/Layer.h"
 #include <stdexcept>
 
 Layer::Layer(int inputSize, int outputSize, 

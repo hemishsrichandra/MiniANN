@@ -1,4 +1,4 @@
-#include "Loss.h"
+#include "../include/Loss.h"
 #include<cmath>
 
 double MSE::calculate(const Matrix& predictions, const Matrix& targets) {

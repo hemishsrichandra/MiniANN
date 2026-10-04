@@ -1,12 +1,12 @@
-#include "Matrix.h"
-#include "Layer.h"
-#include "Activation.h"
-#include "Loss.h"
-#include "Optimizer.h"
-#include "WeightInitializer.h"
-#include "DataLoader.h"
-#include "NeuralNetwork.h"
-#include "Evaluator.h"
+#include "../include/Matrix.h"         
+#include "../include/Layer.h"
+#include "../include/Activation.h"
+#include "../include/Loss.h"
+#include "../include/Optimizer.h"
+#include "../include/WeightInitializer.h"
+#include "../include/DataLoader.h"
+#include "../include/NeuralNetwork.h"
+#include "../include/Evaluator.h"
 
 #include <iostream>
 #include <string>
