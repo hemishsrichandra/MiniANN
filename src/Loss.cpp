@@ -52,7 +52,7 @@ Matrix BinaryCrossEntropy::derivative(const Matrix& predictions, const Matrix& t
             double p = predictions(i, j);
             double y = targets(i, j);
             p = max(epsilon, min(1.0 - epsilon, p));
-            result(i, j) = -y / p + (1.0 - y) / (1.0 - p);
+            result(i, j) = (-y / p + (1.0 - y) / (1.0 - p)) / (rows * cols);
         }
     }
     return result;

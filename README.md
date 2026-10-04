@@ -135,14 +135,14 @@ The project leverages robust Object-Oriented Programming (OOP) paradigms such as
     - `Sigmoid`: Smooth, maps to [0,1]. Used predominantly in output layers for probability.
     - `Tanh`: Maps to [-1, 1], zero-centered.
 - **`IOptimizer` Interface:**
-  - **Design Choice:** Optimizers maintain internal state (e.g., velocity for Momentum, moments for Adam). This requires instantiating unique optimizer states for *each layer*. The interface allows cloning `std::shared_ptr<IOptimizer> clone()` so the network can seamlessly duplicate the chosen optimizer configuration for every layer.
+  - **Design Choice:** Optimizers maintain internal state (e.g., velocity for Momentum, moments for Adam). This requires instantiating unique optimizer states for *each layer*. The interface provides `clone()` so `NeuralNetwork` creates an independent optimizer copy per layer, preventing shared accumulators from corrupting training.
   - **Implementations:** 
     - `SGD`: Standard gradient descent.
     - `Momentum`: Accumulates past gradients to accelerate through flat regions.
     - `Adam`: Computes adaptive learning rates for each parameter using first and second moments.
 - **`ILoss` Interface:**
   - **Design:** Defines `calculate(predictions, targets)` returning a scalar error, and `derivative(predictions, targets)` returning the gradient matrix `dY`.
-  - **Implementations:** `MSE` (Mean Squared Error, great for regression) and `BinaryCrossEntropy` (ideal for classification).
+  - **Implementations:** `MSE` (Mean Squared Error, for regression), `BinaryCrossEntropy` (for binary classification with a Sigmoid output), and `CategoricalCrossEntropy` (for multi-class classification with one-hot targets).
 
 ### Person 3: Orchestration, Data, & Evaluation
 *Responsibility: Tying the mathematical components into a usable, high-level user API.*
@@ -152,7 +152,7 @@ The project leverages robust Object-Oriented Programming (OOP) paradigms such as
   - **Workflow:** Exposes `addLayer()`, `train()`, and `predict()`. The `train()` method manages the epoch loops, triggers mini-batch extractions from the DataLoader, runs the forward pass, calculates loss, executes backpropagation, and logs progress.
 - **`DataLoader` Class:**
   - **Data Management:** Parses CSV strings into `Matrix` objects. 
-  - **Utility:** Implements statistical Normalization (Z-score standard scaling) to ensure stable gradient descent. Implements one-hot encoding for categorical classification.
+  - **Utility:** Implements statistical Normalization (min-max scaling) and Z-score standardization. To prevent data leakage, normalization should be applied *after* performing the train/test split — each split is normalized independently. Implements one-hot encoding for categorical classification.
   - **Batching:** Dynamically chunks the dataset into `std::pair<Matrix, Matrix>` (X_batch, Y_batch) during training loops.
 - **`Evaluator` Class:**
   - **Design Choice:** Implemented entirely with `static` methods. It behaves as a stateless utility namespace rather than an instantiated object. 

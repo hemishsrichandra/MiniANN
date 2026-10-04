@@ -133,16 +133,21 @@ int main(int argc, char* argv[]) {
     dataLoader.printSummary();
 
     // Step 2: Preprocess Data
-    cout << "\n[Step 2] Preprocessing Data (Normalizing features & One-hot encoding targets)..." << endl;
-    dataLoader.normalize();
+    cout << "\n[Step 2] Preprocessing Data (One-hot encoding targets, splitting, then normalizing)..." << endl;
     dataLoader.oneHotEncode();
 
+    // Split BEFORE normalizing to avoid data leakage from the test set
     auto splitData = dataLoader.split(trainRatio, true);
     DataLoader trainLoader = splitData.first;
     DataLoader testLoader = splitData.second;
 
+    // Normalize each split independently
+    trainLoader.normalize();
+    testLoader.normalize();
+
     cout << " Train Set: " << trainLoader.getNumSamples() << " samples (" << fixed << setprecision(1) << (trainRatio * 100.0) << "%)" << endl;
     cout << " Test Set : " << testLoader.getNumSamples() << " samples (" << ((1.0 - trainRatio) * 100.0) << "%)" << endl;
+
 
     int inputSize = trainLoader.getNumFeatures();
     int outputSize = trainLoader.getNumTargets();

@@ -55,9 +55,10 @@ void NeuralNetwork::setOptimizer(shared_ptr<IOptimizer> opt) {
         throw invalid_argument("NeuralNetwork::setOptimizer: optimizer cannot be null");
     }
     this->defaultOptimizer = opt;
-    // Apply optimizer to all current layers
+    // Give each layer its own independent clone so stateful optimizers
+    // (Adam, Momentum) don't share accumulators across layers.
     for (auto& layer : layers) {
-        layer.setOptimizer(opt, opt);
+        layer.setOptimizer(opt->clone(), opt->clone());
     }
 }
 
@@ -79,6 +80,8 @@ void NeuralNetwork::setOptimizer(const string& type, double lr, double b1, doubl
         } else if (optLower == "momentum") {
             layer.setOptimizer(make_shared<Momentum>(lr, b1), make_shared<Momentum>(lr, b1));
         } else {
+            cerr << "[NeuralNetwork] Warning: Unknown optimizer \"" << type
+                 << "\". Falling back to SGD." << endl;
             layer.setOptimizer(make_shared<SGD>(lr), make_shared<SGD>(lr));
         }
     }

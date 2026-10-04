@@ -1,10 +1,14 @@
 #pragma once
 #include "Matrix.h"
+#include <memory>
 
 class IOptimizer {
 public:
     virtual ~IOptimizer() = default;
     virtual void update(Matrix& params, const Matrix& gradients) = 0;
+    // Returns a fresh copy with the same hyperparameters but reset state.
+    // Used by NeuralNetwork to give each layer its own independent optimizer.
+    virtual std::shared_ptr<IOptimizer> clone() const = 0;
 };
 
 class SGD : public IOptimizer {
@@ -13,8 +17,9 @@ class SGD : public IOptimizer {
 
     public:
         SGD(double learningRate = 0.01);
-        
+
         void update(Matrix& params, const Matrix& gradients) override;
+        std::shared_ptr<IOptimizer> clone() const override;
 };
 
 class Momentum : public IOptimizer {
@@ -28,6 +33,7 @@ class Momentum : public IOptimizer {
         Momentum(double learningRate = 0.01, double beta = 0.9);
 
         void update(Matrix& params, const Matrix& gradients) override;
+        std::shared_ptr<IOptimizer> clone() const override;
 };
 
 class Adam : public IOptimizer {
@@ -50,4 +56,5 @@ class Adam : public IOptimizer {
         );
 
         void update(Matrix& params, const Matrix& gradients) override;
+        std::shared_ptr<IOptimizer> clone() const override;
 };

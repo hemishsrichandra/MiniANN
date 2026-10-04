@@ -9,6 +9,10 @@ void SGD::update(Matrix& params, const Matrix& gradients) {
     params = params - gradients * learningRate;
 }
 
+shared_ptr<IOptimizer> SGD::clone() const {
+    return make_shared<SGD>(learningRate);
+}
+
 Momentum::Momentum(double learningRate, double beta) {
     this->learningRate = learningRate;
     this->beta = beta;
@@ -22,6 +26,10 @@ void Momentum::update(Matrix& params, const Matrix& gradients) {
     }
     velocity = velocity * beta + gradients * (1.0 - beta);
     params = params - velocity * learningRate;
+}
+
+shared_ptr<IOptimizer> Momentum::clone() const {
+    return make_shared<Momentum>(learningRate, beta);
 }
 
 Adam::Adam(double learningRate, double beta1, double beta2, double epsilon) {
@@ -61,4 +69,8 @@ void Adam::update(Matrix& params, const Matrix& gradients) {
         }
     }
     params = params - update * learningRate;
+}
+
+shared_ptr<IOptimizer> Adam::clone() const {
+    return make_shared<Adam>(learningRate, beta1, beta2, epsilon);
 }
