@@ -2,7 +2,6 @@
 #include "../include/Layer.h"
 #include "../include/Activation.h"
 #include "../include/Loss.h"
-#include "../include/Optimizer.h"
 #include "../include/WeightInitializer.h"
 #include "../include/DataLoader.h"
 #include "../include/NeuralNetwork.h"
