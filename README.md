@@ -43,9 +43,10 @@ classDiagram
         -vector~Layer~ layers
         -shared_ptr~ILoss~ lossFunction
         -shared_ptr~IOptimizer~ defaultOptimizer
-        +addLayer(Layer layer)
+        +addLayer(int inputSize, int outputSize)
         +train(Matrix X, Matrix Y, int epochs)
         +predict(Matrix input) Matrix
+        +summary()
     }
 
     class Layer {
@@ -53,16 +54,18 @@ classDiagram
         -Matrix biases
         -shared_ptr~IActivation~ activation
         -shared_ptr~IOptimizer~ optimizer_weights
+        -shared_ptr~IOptimizer~ optimizer_biases
         +forward(Matrix input) Matrix
     }
 
     class Matrix {
-        -vector~vector~double~~ data
+        -vector~double~ data
         -int rows
         -int cols
         +operator+(Matrix) Matrix
         +operator*(Matrix) Matrix
         +transpose() Matrix
+        +apply(function) Matrix
     }
 
     class DataLoader {
@@ -70,40 +73,134 @@ classDiagram
         -Matrix Y
         +loadCSV(string filename) bool
         +normalize() void
-        +getBatches(int batchSize) vector
+        +standardize() void
+        +split(double trainRatio) pair
+        +oneHotEncode() void
     }
 
     class Evaluator {
         <<static>>
         +accuracy() double
+        +precision() double
+        +recall() double
         +f1Score() double
         +confusionMatrix() Matrix
+        +printClassificationReport()
     }
 
     class ILoss {
         <<interface>>
+        +calculate(predictions, targets) double
+        +derivative(predictions, targets) Matrix
+    }
+
+    class MSE {
+        +calculate() double
+        +derivative() Matrix
+    }
+
+    class BinaryCrossEntropy {
+        +calculate() double
+        +derivative() Matrix
+    }
+
+    class CategoricalCrossEntropy {
         +calculate() double
         +derivative() Matrix
     }
 
     class IActivation {
         <<interface>>
+        +forward(Matrix input) Matrix
+        +derivative(Matrix input) Matrix
+    }
+
+    class ReLU {
+        +forward() Matrix
+        +derivative() Matrix
+    }
+
+    class Sigmoid {
+        +forward() Matrix
+        +derivative() Matrix
+    }
+
+    class Tanh {
         +forward() Matrix
         +derivative() Matrix
     }
 
     class IOptimizer {
         <<interface>>
-        +update(Matrix weights, Matrix gradients)
+        +update(Matrix params, Matrix gradients)
+        +clone() shared_ptr~IOptimizer~
+    }
+
+    class SGD {
+        -double learningRate
+        +update()
+        +clone()
+    }
+
+    class Momentum {
+        -double learningRate
+        -double beta
+        -Matrix velocity
+        +update()
+        +clone()
+    }
+
+    class Adam {
+        -double learningRate
+        -double beta1
+        -double beta2
+        -Matrix m
+        -Matrix v
+        +update()
+        +clone()
+    }
+
+    class IWeightInitializer {
+        <<interface>>
+        +initialize(Matrix weights, int fanIn, int fanOut)
+    }
+
+    class RandomUniform {
+        +initialize()
+    }
+
+    class Xavier {
+        +initialize()
+    }
+
+    class He {
+        +initialize()
     }
 
     NeuralNetwork *-- Layer : contains
-    NeuralNetwork o-- ILoss : aggregates
-    Layer *-- Matrix : contains (weights, biases)
-    Layer o-- IActivation : aggregates
-    Layer o-- IOptimizer : aggregates
-    DataLoader --> Matrix : uses
+    NeuralNetwork o-- ILoss : uses
+    Layer *-- Matrix : contains
+    Layer o-- IActivation : uses
+    Layer o-- IOptimizer : uses
+    Layer o-- IWeightInitializer : init only
+    DataLoader --> Matrix : produces
     Evaluator ..> Matrix : calculates on
+
+    ILoss <|-- MSE
+    ILoss <|-- BinaryCrossEntropy
+    ILoss <|-- CategoricalCrossEntropy
+
+    IActivation <|-- ReLU
+    IActivation <|-- Sigmoid
+    IActivation <|-- Tanh
+
+    IOptimizer <|-- SGD
+    IOptimizer <|-- Momentum
+    IOptimizer <|-- Adam
+
+    IWeightInitializer <|-- RandomUniform
+    IWeightInitializer <|-- Xavier
+    IWeightInitializer <|-- He
 ```
 
 ---
