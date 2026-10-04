@@ -13,12 +13,29 @@ NeuralNetwork::NeuralNetwork()
       beta2(0.999) {}
 
 void NeuralNetwork::addLayer(const Layer& layer) {
+    const size_t MAX_LAYERS = 10;
+    if (layers.size() >= MAX_LAYERS) {
+        throw runtime_error("NeuralNetwork::addLayer: Maximum number of layers (" + to_string(MAX_LAYERS) + ") exceeded.");
+    }
     layers.push_back(layer);
 }
 
 void NeuralNetwork::addLayer(int inputSize, int outputSize, 
                             shared_ptr<IActivation> activationFunction, 
                             shared_ptr<IWeightInitializer> weightInitializer) {
+    const size_t MAX_LAYERS = 10;
+    const int MAX_NEURONS = 1024;
+    
+    if (layers.size() >= MAX_LAYERS) {
+        throw runtime_error("NeuralNetwork::addLayer: Maximum number of layers (" + to_string(MAX_LAYERS) + ") exceeded.");
+    }
+    if (inputSize <= 0 || outputSize <= 0) {
+        throw invalid_argument("NeuralNetwork::addLayer: Neuron counts must be positive.");
+    }
+    if (inputSize > MAX_NEURONS || outputSize > MAX_NEURONS) {
+        throw invalid_argument("NeuralNetwork::addLayer: Neuron count exceeds maximum limit of " + to_string(MAX_NEURONS) + ".");
+    }
+
     // If no weight initializer provided, use Xavier by default
     if (!weightInitializer) {
         weightInitializer = make_shared<Xavier>();
@@ -45,6 +62,9 @@ void NeuralNetwork::setOptimizer(shared_ptr<IOptimizer> opt) {
 }
 
 void NeuralNetwork::setOptimizer(const string& type, double lr, double b1, double b2) {
+    if (lr < 1e-6 || lr > 10.0) {
+        throw invalid_argument("NeuralNetwork::setOptimizer: Learning rate must be between 1e-6 and 10.0.");
+    }
     this->optimizerType = type;
     this->learningRate = lr;
     this->beta1 = b1;
@@ -65,6 +85,9 @@ void NeuralNetwork::setOptimizer(const string& type, double lr, double b1, doubl
 }
 
 void NeuralNetwork::setLearningRate(double lr) {
+    if (lr < 1e-6 || lr > 10.0) {
+        throw invalid_argument("NeuralNetwork::setLearningRate: Learning rate must be between 1e-6 and 10.0.");
+    }
     this->learningRate = lr;
     setOptimizer(this->optimizerType, lr, this->beta1, this->beta2);
 }
@@ -159,6 +182,12 @@ vector<double> NeuralNetwork::train(const Matrix& X, const Matrix& Y, int epochs
     }
     if (!lossFunction) {
         throw runtime_error("NeuralNetwork::train: no loss function set");
+    }
+    if (epochs <= 0 || epochs > 10000) {
+        throw invalid_argument("NeuralNetwork::train: epochs must be between 1 and 10000.");
+    }
+    if (batchSize <= 0 || batchSize > 65536) {
+        throw invalid_argument("NeuralNetwork::train: batchSize must be between 1 and 65536.");
     }
     if (X.getCols() != Y.getCols()) {
         throw invalid_argument("NeuralNetwork::train: X and Y sample counts do not match");

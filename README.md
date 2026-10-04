@@ -35,6 +35,77 @@ graph TD
     J --> K((Metrics: Accuracy, F1))
 ```
 
+### UML Class Diagram
+
+```mermaid
+classDiagram
+    class NeuralNetwork {
+        -vector~Layer~ layers
+        -shared_ptr~ILoss~ lossFunction
+        -shared_ptr~IOptimizer~ defaultOptimizer
+        +addLayer(Layer layer)
+        +train(Matrix X, Matrix Y, int epochs)
+        +predict(Matrix input) Matrix
+    }
+
+    class Layer {
+        -Matrix weights
+        -Matrix biases
+        -shared_ptr~IActivation~ activation
+        -shared_ptr~IOptimizer~ optimizer_weights
+        +forward(Matrix input) Matrix
+    }
+
+    class Matrix {
+        -vector~vector~double~~ data
+        -int rows
+        -int cols
+        +operator+(Matrix) Matrix
+        +operator*(Matrix) Matrix
+        +transpose() Matrix
+    }
+
+    class DataLoader {
+        -Matrix X
+        -Matrix Y
+        +loadCSV(string filename) bool
+        +normalize() void
+        +getBatches(int batchSize) vector
+    }
+
+    class Evaluator {
+        <<static>>
+        +accuracy() double
+        +f1Score() double
+        +confusionMatrix() Matrix
+    }
+
+    class ILoss {
+        <<interface>>
+        +calculate() double
+        +derivative() Matrix
+    }
+
+    class IActivation {
+        <<interface>>
+        +forward() Matrix
+        +derivative() Matrix
+    }
+
+    class IOptimizer {
+        <<interface>>
+        +update(Matrix weights, Matrix gradients)
+    }
+
+    NeuralNetwork *-- Layer : contains
+    NeuralNetwork o-- ILoss : aggregates
+    Layer *-- Matrix : contains (weights, biases)
+    Layer o-- IActivation : aggregates
+    Layer o-- IOptimizer : aggregates
+    DataLoader --> Matrix : uses
+    Evaluator ..> Matrix : calculates on
+```
+
 ---
 
 ## 🛠️ Implementation Details & Design Choices

@@ -88,6 +88,16 @@ bool DataLoader::loadCSV(const string& filename, int labelCol, bool hasHeader, c
         return false;
     }
 
+    const size_t MAX_CSV_ROWS = 25000;
+    if (rawRows.size() > MAX_CSV_ROWS) {
+        cout << "[DataLoader] Warning: CSV rows (" << rawRows.size() << ") exceed maximum limit of " << MAX_CSV_ROWS 
+             << ". Randomly sampling " << MAX_CSV_ROWS << " rows." << endl;
+        random_device rd;
+        mt19937 g(rd());
+        std::shuffle(rawRows.begin(), rawRows.end(), g);
+        rawRows.resize(MAX_CSV_ROWS);
+    }
+
     int totalCols = rawRows[0].size();
     int actualLabelCol = (labelCol < 0) ? (totalCols + labelCol) : labelCol;
     if (actualLabelCol < 0 || actualLabelCol >= totalCols) {
