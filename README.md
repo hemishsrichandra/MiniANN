@@ -1,38 +1,54 @@
-# MiniANN - Minimal Artificial Neural Network Library
+# MiniANN
 
-MiniANN is a highly modular, lightweight, and zero-dependency Artificial Neural Network library built natively in C++17. Designed with educational clarity and architectural robustness in mind, it provides a full suite of features to load datasets, build arbitrary feed-forward topologies, and evaluate model performance.
+A lightweight, zero-dependency neural network library written in C++17. MiniANN implements a fully manual feedforward neural network from scratch — including matrix operations, backpropagation, and gradient-based optimization — with no external ML libraries.
 
 ---
 
-## 🌊 Architecture and Dataflow
+## Table of Contents
 
-The architecture fundamentally revolves around the concept of representing data as matrices and propagating them through sequential transformations (layers). 
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Components](#components)
+- [Build Instructions](#build-instructions)
+- [Usage](#usage)
+- [Testing](#testing)
 
-### High-Level Workflow
-1. **Data Ingestion:** The `DataLoader` reads raw CSV data, performs normalization, and splits the data into manageable mini-batches.
-2. **Forward Propagation:** The `NeuralNetwork` receives these batches (represented as `Matrix` objects) and passes them sequentially through each `Layer`. Each layer computes `Z = W * A_prev + b`, applies an `Activation` function, and forwards the result.
-3. **Loss Computation:** The final layer's output is compared against the target labels using a `Loss` function (e.g., MSE or Cross-Entropy) to compute the total error and the initial gradient.
-4. **Backward Propagation:** Gradients are propagated backwards. Each `Layer` calculates how its weights and biases contributed to the error, pushing the error gradient further back.
-5. **Optimization:** The `Optimizer` takes the calculated gradients and updates the internal weights/biases of each layer using strategies like SGD, Momentum, or Adam.
-6. **Evaluation:** Post-training, the `Evaluator` calculates human-interpretable metrics (Accuracy, F1-Score, Confusion Matrix).
+---
+
+## Overview
+
+MiniANN provides a modular, object-oriented framework for building and training feedforward neural networks. All core operations — matrix math, forward/backward passes, loss computation, and weight updates — are implemented from first principles in standard C++17.
+
+**Key properties:**
+- Zero external dependencies (standard library only)
+- C++17, cross-platform (Linux, macOS, Windows)
+- Column-major matrix layout: each column is one sample, enabling batched operations
+- Supports binary and multi-class classification, and regression
+- Pluggable activations, optimizers, loss functions, and weight initializers via interfaces
+
+---
+
+## Architecture
+
+### Training Pipeline
 
 ```mermaid
 graph TD
     A[Raw CSV Data] -->|DataLoader| B(Input Matrix X)
-    B --> C[Layer 1: Linear + Activation]
-    C --> D[Layer 2: Linear + Activation]
+    B --> C[Layer 1: Z = W·X + b, Activation]
+    C --> D[Layer 2: Z = W·X + b, Activation]
     D --> E[Output Matrix Y_pred]
-    
+
     E --> F{Loss Function}
     G[Target Matrix Y_true] --> F
-    
-    F -->|Error Gradients| H[Backpropagation]
-    H -->|Update dW, db| I[Optimizer]
-    I -->|Adjust Weights| C
-    I -->|Adjust Weights| D
-    
-    E -->|Test Set Predictions| J[Evaluator]
-    J --> K((Metrics: Accuracy, F1))
+
+    F -->|dL/dY| H[Backpropagation]
+    H -->|dW, db per layer| I[Optimizer]
+    I -->|Update weights| C
+    I -->|Update weights| D
+
+    E -->|Predictions| J[Evaluator]
+    J --> K((Accuracy, F1, Confusion Matrix))
 ```
 
 ### UML Class Diagram
@@ -205,94 +221,182 @@ classDiagram
 
 ---
 
-## 🛠️ Implementation Details & Design Choices
+## Components
 
-The project leverages robust Object-Oriented Programming (OOP) paradigms such as **Polymorphism**, **Encapsulation**, **Composition**, and the **Strategy Pattern**. The workload is structurally divided into three core pillars:
+### Matrix
 
-### Person 1: Core Mathematical Foundation & Layers
-*Responsibility: The fundamental data structures and layer abstractions.*
+The core data structure. All features (inputs, weights, biases, gradients) are represented as `Matrix` objects.
 
-- **`Matrix` Class (The Engine):** 
-  - **Design:** Instead of raw double pointers (`double**`), `std::vector<double>` is used internally in a flattened 1D array to represent 2D matrices. This ensures cache locality, avoids memory leaks, and leverages RAII (Resource Acquisition Is Initialization).
-  - **Features:** Overloads operators for intuitive math syntax. Implements matrix multiplication (dot product), element-wise addition/subtraction, and transposition. 
-- **`IWeightInitializer` (Strategy Pattern):**
-  - **Design:** A purely virtual base class (Interface). 
-  - **Implementations:** `RandomUniform`, `Xavier` (optimal for Sigmoid/Tanh to prevent vanishing gradients), and `He` (optimal for ReLU).
-- **`Layer` Class:**
-  - **Encapsulation:** Weights (`W`) and biases (`b`) are kept private. The layer state (inputs, pre-activations, post-activations) is cached internally during the `forward()` pass to be reused efficiently during the `backward()` pass.
-  - **Composition:** A Layer "has-a" `IActivation` and "has-a" `IWeightInitializer` via `std::shared_ptr`. This allows dynamic injection of behavior without modifying the layer logic.
+- Internal storage uses a flat `std::vector<double>` for cache efficiency and automatic memory management (RAII)
+- Column-major convention: a matrix of shape `(features, samples)` stores each sample as a column
+- Supports: matrix multiplication, element-wise operations, transposition, scalar scaling, and `apply()` for arbitrary element-wise functions
 
-### Person 2: Algorithms (Activations, Optimizers, Losses)
-*Responsibility: The calculus and gradient descent methodologies.*
+### Layer
 
-- **`IActivation` Interface:**
-  - **Polymorphism:** Defines `forward(Matrix)` and `derivative(Matrix)`. 
-  - **Implementations:** 
-    - `ReLU`: Fast, prevents gradient vanishing. Derivative is 1 for `x>0`, else 0.
-    - `Sigmoid`: Smooth, maps to [0,1]. Used predominantly in output layers for probability.
-    - `Tanh`: Maps to [-1, 1], zero-centered.
-- **`IOptimizer` Interface:**
-  - **Design Choice:** Optimizers maintain internal state (e.g., velocity for Momentum, moments for Adam). This requires instantiating unique optimizer states for *each layer*. The interface provides `clone()` so `NeuralNetwork` creates an independent optimizer copy per layer, preventing shared accumulators from corrupting training.
-  - **Implementations:** 
-    - `SGD`: Standard gradient descent.
-    - `Momentum`: Accumulates past gradients to accelerate through flat regions.
-    - `Adam`: Computes adaptive learning rates for each parameter using first and second moments.
-- **`ILoss` Interface:**
-  - **Design:** Defines `calculate(predictions, targets)` returning a scalar error, and `derivative(predictions, targets)` returning the gradient matrix `dY`.
-  - **Implementations:** `MSE` (Mean Squared Error, for regression), `BinaryCrossEntropy` (for binary classification with a Sigmoid output), and `CategoricalCrossEntropy` (for multi-class classification with one-hot targets).
+Represents a single fully-connected (dense) layer.
 
-### Person 3: Orchestration, Data, & Evaluation
-*Responsibility: Tying the mathematical components into a usable, high-level user API.*
+- Holds weight matrix `W` (shape: `outputSize × inputSize`) and bias vector `b` (shape: `outputSize × 1`)
+- Caches the input and pre-activation `Z` during `forward()` for use in `backward()`
+- Each layer holds two independent optimizer instances — one for weights, one for biases — to maintain separate gradient histories
 
-- **`NeuralNetwork` Class:**
-  - **Composition & Orchestration:** Maintains a `std::vector<Layer>` and a `std::shared_ptr<ILoss>`. 
-  - **Workflow:** Exposes `addLayer()`, `train()`, and `predict()`. The `train()` method manages the epoch loops, triggers mini-batch extractions from the DataLoader, runs the forward pass, calculates loss, executes backpropagation, and logs progress.
-- **`DataLoader` Class:**
-  - **Data Management:** Parses CSV strings into `Matrix` objects. 
-  - **Utility:** Implements statistical Normalization (min-max scaling) and Z-score standardization. To prevent data leakage, normalization should be applied *after* performing the train/test split — each split is normalized independently. Implements one-hot encoding for categorical classification.
-  - **Batching:** Dynamically chunks the dataset into `std::pair<Matrix, Matrix>` (X_batch, Y_batch) during training loops.
-- **`Evaluator` Class:**
-  - **Design Choice:** Implemented entirely with `static` methods. It behaves as a stateless utility namespace rather than an instantiated object. 
-  - **Metrics:** Computes robust statistical proofs of the model's success: Accuracy, Precision, Recall, F1-Score, and generates console-friendly Confusion Matrices.
+### NeuralNetwork
+
+The top-level orchestrator.
+
+- Manages a sequence of `Layer` objects and a shared loss function
+- `train()` runs the full epoch loop: mini-batch extraction → forward pass → loss → backward pass → weight update
+- `setOptimizer()` uses `clone()` on the optimizer interface to give each layer its own independent state, preventing stateful optimizers (Adam, Momentum) from sharing accumulators across layers
+
+### Activation Functions
+
+All activations implement `IActivation` with `forward()` and `derivative()` methods.
+
+| Class | Formula | Typical Use |
+|---|---|---|
+| `ReLU` | `max(0, x)` | Hidden layers |
+| `Sigmoid` | `1 / (1 + e^-x)` | Binary output layer |
+| `Tanh` | `tanh(x)` | Hidden layers (zero-centered) |
+
+### Loss Functions
+
+All loss functions implement `ILoss` with `calculate()` and `derivative()` methods. Both are normalized by the number of elements so gradient magnitude is consistent regardless of batch size.
+
+| Class | Use Case |
+|---|---|
+| `MSE` | Regression |
+| `BinaryCrossEntropy` | Binary classification (Sigmoid output) |
+| `CategoricalCrossEntropy` | Multi-class classification (one-hot targets) |
+
+### Optimizers
+
+All optimizers implement `IOptimizer` with `update()` and `clone()`. `clone()` returns a fresh instance with the same hyperparameters but zeroed internal state, used to create per-layer optimizer copies.
+
+| Class | Notes |
+|---|---|
+| `SGD` | `W = W - lr * dW` |
+| `Momentum` | Accumulates exponentially weighted gradient history to dampen oscillations |
+| `Adam` | Maintains per-parameter first and second moment estimates for adaptive learning rates |
+
+### Weight Initializers
+
+All initializers implement `IWeightInitializer` and are applied once at layer construction.
+
+| Class | Formula | Recommended For |
+|---|---|---|
+| `RandomUniform` | Uniform distribution in `[-0.5, 0.5]` | General use |
+| `Xavier` | `sqrt(2 / (fanIn + fanOut))` scale | Sigmoid / Tanh |
+| `He` | `sqrt(2 / fanIn)` scale | ReLU |
+
+### DataLoader
+
+Handles all data ingestion and preprocessing.
+
+- Parses CSV files with automatic header detection, delimiter configuration, and string label encoding
+- `normalize()` — min-max scaling per feature to `[0, 1]`
+- `standardize()` — Z-score scaling per feature to zero mean, unit variance
+- `split(ratio)` — random train/test split; normalization should be applied **after** splitting to each subset independently to avoid data leakage
+- `oneHotEncode()` — converts integer class labels into one-hot row vectors for multi-class output
+
+### Evaluator
+
+A fully static utility class for post-training evaluation.
+
+| Method | Description |
+|---|---|
+| `accuracy()` | Fraction of correctly classified samples |
+| `precision(c)` | TP / (TP + FP) for class `c`; pass `-1` for macro average |
+| `recall(c)` | TP / (TP + FN) for class `c`; pass `-1` for macro average |
+| `f1Score(c)` | Harmonic mean of precision and recall |
+| `confusionMatrix()` | Returns an `N×N` matrix of predicted vs. true class counts |
+| `printClassificationReport()` | Prints a formatted per-class and averaged metrics table |
 
 ---
 
-## 🚀 Cross-Platform Support
-
-MiniANN is fully cross-platform and compiles seamlessly on **Windows**, **macOS**, and **Linux**. It rigidly adheres to standard C++17 and entirely avoids OS-specific bindings. 
-
-### Build Instructions
+## Build Instructions
 
 **Prerequisites:**
-- C++17 compatible compiler (GCC, Clang, or MSVC)
-- CMake (3.10 or higher)
+- C++17 compatible compiler (GCC 7+, Clang 5+, or MSVC 2017+)
+- CMake 3.10 or higher
 
-#### Universal Build Steps (macOS / Linux / Windows)
 ```bash
-# 1. Clone the repository
+# Clone the repository
 git clone https://github.com/yourusername/MiniANN.git
 cd MiniANN
 
-# 2. Configure the build with CMake
+# Configure
 cmake -S . -B build
 
-# 3. Compile the project
+# Build
 cmake --build build
 
-# 4. Run the demonstration
-./build/miniann_demo             # On macOS/Linux
-.\\build\\Debug\\miniann_demo.exe  # On Windows
+# Run the demo (macOS / Linux)
+./build/miniann_demo
+
+# Run the demo (Windows)
+.\build\Debug\miniann_demo.exe
 ```
 
-## 🧪 Testing
+---
 
-The library includes an extensive integration test suite validating matrix dimensions, layer activations, loss convergences, and end-to-end training pipelines.
+## Usage
+
+The following example loads a CSV dataset, builds a two-hidden-layer network, trains it, and prints evaluation metrics.
+
+```cpp
+#include "NeuralNetwork.h"
+#include "DataLoader.h"
+#include "Evaluator.h"
+#include "Activation.h"
+#include "Loss.h"
+
+int main() {
+    // 1. Load data
+    DataLoader loader;
+    loader.loadCSV("data/dataset.csv", -1, true, ',');
+
+    // 2. Preprocess: encode labels, split, then normalize each split
+    loader.oneHotEncode();
+    auto [trainSet, testSet] = loader.split(0.8, true);
+    trainSet.normalize();
+    testSet.normalize();
+
+    int inputSize  = trainSet.getNumFeatures();
+    int outputSize = trainSet.getNumTargets();
+
+    // 3. Build network
+    NeuralNetwork nn;
+    nn.addLayer(inputSize, 64, make_shared<ReLU>(),     make_shared<He>());
+    nn.addLayer(64,         32, make_shared<ReLU>(),     make_shared<He>());
+    nn.addLayer(32, outputSize, make_shared<Sigmoid>(),  make_shared<Xavier>());
+
+    nn.setLoss(make_shared<MSE>());
+    nn.setOptimizer("adam", 0.001);
+    nn.summary();
+
+    // 4. Train
+    nn.train(trainSet, testSet, /*epochs=*/50, /*batchSize=*/32, /*verbose=*/true);
+
+    // 5. Evaluate
+    Matrix preds = nn.predict(testSet.getX());
+    Evaluator::printClassificationReport(preds, testSet.getY());
+
+    return 0;
+}
+```
+
+---
+
+## Testing
+
+The integration test suite validates matrix arithmetic, layer forward/backward passes, loss functions, and end-to-end training convergence.
 
 ```bash
-# Compile and run tests
+# Build and run tests
 cmake --build build --target miniann_tests
 
-# Run tests
-./build/miniann_tests             # On macOS/Linux
-.\\build\\Debug\\miniann_tests.exe  # On Windows
+# macOS / Linux
+./build/miniann_tests
+
+# Windows
+.\build\Debug\miniann_tests.exe
 ```
