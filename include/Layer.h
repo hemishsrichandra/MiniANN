@@ -32,4 +32,7 @@ public:
 
     Matrix getWeights() const { return weights; }
     Matrix getBiases() const { return biases; }
+    void setWeights(const Matrix& w) { weights = w; }
+    void setBiases(const Matrix& b) { biases = b; }
+    shared_ptr<IActivation> getActivation() const { return activation; }
 };

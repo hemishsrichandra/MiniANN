@@ -26,3 +26,8 @@ class Tanh : public IActivation {
         Matrix forward(const Matrix& input) override;
         Matrix derivative(const Matrix& input) override;
 };
+class SoftMax : public IActivation {
+public:
+    Matrix forward(const Matrix& input) override;
+    Matrix derivative(const Matrix& input) override;
+};

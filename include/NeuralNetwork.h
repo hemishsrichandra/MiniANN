@@ -48,7 +48,7 @@ public:
     Matrix predict(const Matrix& input);
 
     // Backpropagation
-    void backward(const Matrix& lossGrad);
+    void backward(const Matrix& lossGrad, const Matrix& targets);
 
     // Training methods
     vector<double> train(const Matrix& X, const Matrix& Y, int epochs, int batchSize = 32, bool verbose = true);
@@ -65,4 +65,8 @@ public:
     vector<Layer>& getLayers() { return layers; }
     const vector<double>& getLossHistory() const { return lossHistory; }
     void summary() const;
+
+    bool saveModel(const string& filename) const;
+    bool loadModel(const string& filename);
+    string getLossName() const;
 };

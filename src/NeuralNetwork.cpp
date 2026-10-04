@@ -1,5 +1,6 @@
 #include "../include/NeuralNetwork.h"
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <stdexcept>
 #include <algorithm>
@@ -132,7 +133,7 @@ Matrix NeuralNetwork::predict(const Matrix& input) {
     return forward(input);
 }
 
-void NeuralNetwork::backward(const Matrix& lossGrad) {
+void NeuralNetwork::backward(const Matrix& lossGrad, const Matrix& targets) {
     if (layers.empty()) {
         throw runtime_error("NeuralNetwork::backward: network has no layers");
     }
@@ -145,7 +146,20 @@ void NeuralNetwork::backward(const Matrix& lossGrad) {
 
         // 1. Calculate dZ
         Matrix dZ;
-        if (layerInt.activation) {
+        if (dynamic_cast<SoftMax*>(layerInt.activation.get()) &&
+            dynamic_cast<CategoricalCrossEntropy*>(lossFunction.get()) &&
+            i == numLayers - 1) {
+            Matrix probabilities = layerInt.activation->forward(layerInt.zCache);
+            int rows = probabilities.getRows();
+            int cols = probabilities.getCols();
+            dZ = Matrix(rows, cols);
+            double scale = 1.0 / (rows * cols);
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
+                    dZ(r, c) = (probabilities(r, c) - targets(r, c)) * scale;
+                }
+            }
+        } else if (layerInt.activation) {
             Matrix actDeriv = layerInt.activation->derivative(layerInt.zCache);
             dZ = dA.hadamard(actDeriv);
         } else {
@@ -237,7 +251,7 @@ vector<double> NeuralNetwork::train(const Matrix& X, const Matrix& Y, int epochs
 
             // Backward
             Matrix grad = lossFunction->derivative(preds, batchY);
-            backward(grad);
+            backward(grad, batchY);
         }
 
         double avgLoss = totalLoss / totalBatches;
@@ -302,7 +316,7 @@ vector<double> NeuralNetwork::train(DataLoader& trainLoader, DataLoader& valLoad
             totalLoss += bLoss;
 
             Matrix grad = lossFunction->derivative(preds, batchY);
-            backward(grad);
+            backward(grad, batchY);
         }
 
         double trainLoss = totalLoss / totalBatches;
@@ -360,4 +374,134 @@ void NeuralNetwork::summary() const {
     cout << "Total Trainable Parameters: " << totalParams << endl;
     cout << "Optimizer: " << optimizerType << " (lr=" << learningRate << ")" << endl;
     cout << "============================================================\n" << endl;
+}
+
+string NeuralNetwork::getLossName() const {
+    if (dynamic_cast<BinaryCrossEntropy*>(lossFunction.get())) return "BinaryCrossEntropy";
+    if (dynamic_cast<CategoricalCrossEntropy*>(lossFunction.get())) return "CategoricalCrossEntropy";
+    return "MSE";
+}
+
+bool NeuralNetwork::saveModel(const string& filename) const {
+    ofstream out(filename);
+    if (!out.is_open()) {
+        cerr << "[NeuralNetwork] Error: Could not open file for saving model: " << filename << endl;
+        return false;
+    }
+
+    out << "MINIANN_MODEL_V1\n";
+    out << "OPTIMIZER " << optimizerType << " " << learningRate << " " << beta1 << " " << beta2 << "\n";
+    out << "LOSS " << getLossName() << "\n";
+    out << "NUM_LAYERS " << layers.size() << "\n";
+
+    for (size_t i = 0; i < layers.size(); ++i) {
+        const Layer& layer = layers[i];
+        Matrix w = layer.getWeights();
+        Matrix b = layer.getBiases();
+        
+        string actName = "None";
+        if (dynamic_cast<ReLU*>(layer.getActivation().get())) actName = "ReLU";
+        else if (dynamic_cast<Tanh*>(layer.getActivation().get())) actName = "Tanh";
+        else if (dynamic_cast<Sigmoid*>(layer.getActivation().get())) actName = "Sigmoid";
+        else if (dynamic_cast<SoftMax*>(layer.getActivation().get())) actName = "SoftMax";
+
+        out << "LAYER " << i << " " << w.getCols() << " " << w.getRows() << " " << actName << "\n";
+        
+        out << "WEIGHTS " << w.getRows() << " " << w.getCols() << "\n";
+        for (int r = 0; r < w.getRows(); ++r) {
+            for (int c = 0; c < w.getCols(); ++c) {
+                out << setprecision(16) << w(r, c) << (c + 1 < w.getCols() ? " " : "\n");
+            }
+        }
+
+        out << "BIASES " << b.getRows() << " " << b.getCols() << "\n";
+        for (int r = 0; r < b.getRows(); ++r) {
+            for (int c = 0; c < b.getCols(); ++c) {
+                out << setprecision(16) << b(r, c) << (c + 1 < b.getCols() ? " " : "\n");
+            }
+        }
+    }
+
+    out.close();
+    return true;
+}
+
+bool NeuralNetwork::loadModel(const string& filename) {
+    ifstream in(filename);
+    if (!in.is_open()) {
+        cerr << "[NeuralNetwork] Error: Could not open file for loading model: " << filename << endl;
+        return false;
+    }
+
+    string header;
+    if (!(in >> header) || header != "MINIANN_MODEL_V1") {
+        cerr << "[NeuralNetwork] Error: Invalid model file format in " << filename << endl;
+        return false;
+    }
+
+    layers.clear();
+    lossHistory.clear();
+
+    string key;
+    int numLayers = 0;
+
+    while (in >> key) {
+        if (key == "OPTIMIZER") {
+            string opt;
+            double lr, b1, b2;
+            in >> opt >> lr >> b1 >> b2;
+            setOptimizer(opt, lr, b1, b2);
+        } else if (key == "LOSS") {
+            string loss;
+            in >> loss;
+            if (loss == "BinaryCrossEntropy") {
+                setLoss(make_shared<BinaryCrossEntropy>());
+            } else if (loss == "CategoricalCrossEntropy") {
+                setLoss(make_shared<CategoricalCrossEntropy>());
+            } else {
+                setLoss(make_shared<MSE>());
+            }
+        } else if (key == "NUM_LAYERS") {
+            in >> numLayers;
+        } else if (key == "LAYER") {
+            int layerIdx, inSize, outSize;
+            string actName;
+            in >> layerIdx >> inSize >> outSize >> actName;
+
+            shared_ptr<IActivation> act = nullptr;
+            if (actName == "ReLU") act = make_shared<ReLU>();
+            else if (actName == "Tanh") act = make_shared<Tanh>();
+            else if (actName == "Sigmoid") act = make_shared<Sigmoid>();
+            else if (actName == "SoftMax") act = make_shared<SoftMax>();
+
+            string wKey;
+            int wRows, wCols;
+            in >> wKey >> wRows >> wCols;
+            vector<vector<double>> wData(wRows, vector<double>(wCols));
+            for (int r = 0; r < wRows; ++r) {
+                for (int c = 0; c < wCols; ++c) {
+                    in >> wData[r][c];
+                }
+            }
+
+            string bKey;
+            int bRows, bCols;
+            in >> bKey >> bRows >> bCols;
+            vector<vector<double>> bData(bRows, vector<double>(bCols));
+            for (int r = 0; r < bRows; ++r) {
+                for (int c = 0; c < bCols; ++c) {
+                    in >> bData[r][c];
+                }
+            }
+
+            Layer layer(inSize, outSize, act, nullptr);
+            layer.setWeights(Matrix(wData));
+            layer.setBiases(Matrix(bData));
+            layers.push_back(layer);
+        }
+    }
+
+    in.close();
+    configureLayerOptimizers();
+    return !layers.empty();
 }

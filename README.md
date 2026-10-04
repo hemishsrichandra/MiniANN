@@ -62,6 +62,8 @@ classDiagram
         +addLayer(int inputSize, int outputSize)
         +train(Matrix X, Matrix Y, int epochs)
         +predict(Matrix input) Matrix
+        +saveModel(string filename) bool
+        +loadModel(string filename) bool
         +summary()
     }
 
@@ -245,6 +247,7 @@ The top-level orchestrator.
 
 - Manages a sequence of `Layer` objects and a shared loss function
 - `train()` runs the full epoch loop: mini-batch extraction → forward pass → loss → backward pass → weight update
+- `saveModel(filename)` and `loadModel(filename)` allow persisting trained network states to text files
 - `setOptimizer()` uses `clone()` on the optimizer interface to give each layer its own independent state, preventing stateful optimizers (Adam, Momentum) from sharing accumulators across layers
 
 ### Activation Functions
@@ -256,6 +259,7 @@ All activations implement `IActivation` with `forward()` and `derivative()` meth
 | `ReLU` | `max(0, x)` | Hidden layers |
 | `Sigmoid` | `1 / (1 + e^-x)` | Binary output layer |
 | `Tanh` | `tanh(x)` | Hidden layers (zero-centered) |
+| `SoftMax` | `exp(x) / sum(exp(x))` | Multi-class output layer |
 
 ### Loss Functions
 
