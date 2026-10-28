@@ -25,7 +25,7 @@ Matrix::Matrix(const vector<vector<double>>& data) {
     this->rows = data.size();
     this->cols = data[0].size();
     for (const auto& row : data) {
-        if (row.size() != this->cols) {
+        if (static_cast<int>(row.size()) != this->cols) {
             throw invalid_argument("All rows must have the same number of columns");
         }
     }

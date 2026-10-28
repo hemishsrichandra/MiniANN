@@ -5,6 +5,8 @@
 RandomUniform::RandomUniform(double min, double max) : min_val(min), max_val(max) {}
 
 void RandomUniform::initialize(Matrix& weights, int fanIn, int fanOut) {
+    (void)fanIn;
+    (void)fanOut;
     random_device rd;
     mt19937 gen(rd());
     uniform_real_distribution<> dis(min_val, max_val);
@@ -30,6 +32,7 @@ void Xavier::initialize(Matrix& weights, int fanIn, int fanOut) {
 }
 
 void He::initialize(Matrix& weights, int fanIn, int fanOut) {
+    (void)fanOut;
     random_device rd;
     mt19937 gen(rd());
     double stddev = sqrt(2.0 / fanIn);

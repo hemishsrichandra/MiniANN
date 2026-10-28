@@ -35,4 +35,5 @@ public:
     void setWeights(const Matrix& w) { weights = w; }
     void setBiases(const Matrix& b) { biases = b; }
     shared_ptr<IActivation> getActivation() const { return activation; }
+    void setActivation(shared_ptr<IActivation> act) { activation = act; }
 };

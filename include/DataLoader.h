@@ -18,6 +18,8 @@ private:
     vector<string> featureNames;
     string targetName;
     map<string, int> labelMapping; // For categorical labels to integer classes
+    vector<double> minValues;
+    vector<double> maxValues;
 
 public:
     DataLoader();
@@ -36,6 +38,7 @@ public:
     void shuffle(unsigned int seed = 0);
     pair<DataLoader, DataLoader> split(double trainRatio = 0.8, bool shuffleFirst = true) const;
     void normalize();   // Min-Max feature scaling: (x - min) / (max - min)
+    void applyNormalization(const vector<double>& mins, const vector<double>& maxs); // Apply saved min/max scaling
     void standardize(); // Z-score standardization: (x - mean) / std
     void oneHotEncode(int numClasses = -1); // Convert 1-row labels to numClasses-row one-hot vectors
 
@@ -44,7 +47,7 @@ public:
     pair<Matrix, Matrix> getBatch(int batchIndex, int batchSize) const;
     vector<pair<Matrix, Matrix>> getBatches(int batchSize) const;
 
-    // Getters
+    // Getters and Setters
     int getNumSamples() const { return numSamples; }
     int getNumFeatures() const { return numFeatures; }
     int getNumTargets() const { return numTargets; }
@@ -55,6 +58,12 @@ public:
     const vector<string>& getFeatureNames() const { return featureNames; }
     const string& getTargetName() const { return targetName; }
     const map<string, int>& getLabelMapping() const { return labelMapping; }
+    const vector<double>& getMinValues() const { return minValues; }
+    const vector<double>& getMaxValues() const { return maxValues; }
+    void setMinMaxValues(const vector<double>& mins, const vector<double>& maxs) { minValues = mins; maxValues = maxs; }
+    void setFeatureNames(const vector<string>& names) { featureNames = names; }
+    void setTargetName(const string& name) { targetName = name; }
+    void setLabelMapping(const map<string, int>& mapping) { labelMapping = mapping; }
 
     // Display info
     void printSummary() const;

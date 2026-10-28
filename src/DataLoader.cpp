@@ -2,9 +2,11 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 #include <cmath>
 #include <algorithm>
 #include <random>
+#include <chrono>
 
 DataLoader::DataLoader() : numSamples(0), numFeatures(0), numTargets(0) {}
 
@@ -52,6 +54,8 @@ bool DataLoader::loadCSV(const string& filename, int labelCol, bool hasHeader, c
 
     string line;
     vector<vector<string>> rawRows;
+    minValues.clear();
+    maxValues.clear();
     featureNames.clear();
     targetName = "";
     labelMapping.clear();
@@ -297,15 +301,22 @@ pair<DataLoader, DataLoader> DataLoader::split(double trainRatio, bool shuffleFi
     trainLoader.featureNames = featureNames;
     trainLoader.targetName = targetName;
     trainLoader.labelMapping = labelMapping;
+    trainLoader.minValues = minValues;
+    trainLoader.maxValues = maxValues;
     testLoader.featureNames = featureNames;
     testLoader.targetName = targetName;
     testLoader.labelMapping = labelMapping;
+    testLoader.minValues = minValues;
+    testLoader.maxValues = maxValues;
 
     return {trainLoader, testLoader};
 }
 
 void DataLoader::normalize() {
     if (numSamples == 0 || numFeatures == 0) return;
+
+    minValues.resize(numFeatures);
+    maxValues.resize(numFeatures);
 
     for (int i = 0; i < numFeatures; ++i) {
         double minVal = X(i, 0);
@@ -315,6 +326,29 @@ void DataLoader::normalize() {
             if (v < minVal) minVal = v;
             if (v > maxVal) maxVal = v;
         }
+        minValues[i] = minVal;
+        maxValues[i] = maxVal;
+
+        double range = maxVal - minVal;
+        if (range < 1e-12) range = 1.0;
+
+        for (int j = 0; j < numSamples; ++j) {
+            X(i, j) = (X(i, j) - minVal) / range;
+        }
+    }
+}
+
+void DataLoader::applyNormalization(const vector<double>& mins, const vector<double>& maxs) {
+    if (numSamples == 0 || numFeatures == 0) return;
+    if (mins.size() != static_cast<size_t>(numFeatures) || maxs.size() != mins.size()) {
+        throw invalid_argument("DataLoader::applyNormalization: expected one min/max pair per feature");
+    }
+    minValues = mins;
+    maxValues = maxs;
+
+    for (int i = 0; i < numFeatures && i < static_cast<int>(mins.size()) && i < static_cast<int>(maxs.size()); ++i) {
+        double minVal = mins[i];
+        double maxVal = maxs[i];
         double range = maxVal - minVal;
         if (range < 1e-12) range = 1.0;
 

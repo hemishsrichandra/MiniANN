@@ -59,7 +59,13 @@ public:
     double evaluate(const Matrix& X, const Matrix& Y);
     double evaluate(DataLoader& dataLoader);
 
-    // Inspection
+    // Inspection and management
+    void clearLayers() { layers.clear(); }
+    string getOptimizerType() const { return optimizerType; }
+    double getLearningRate() const { return learningRate; }
+    double getBeta1() const { return beta1; }
+    double getBeta2() const { return beta2; }
+    shared_ptr<ILoss> getLoss() const { return lossFunction; }
     int getNumLayers() const { return static_cast<int>(layers.size()); }
     const vector<Layer>& getLayers() const { return layers; }
     vector<Layer>& getLayers() { return layers; }

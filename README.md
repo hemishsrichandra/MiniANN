@@ -298,7 +298,7 @@ Handles all data ingestion and preprocessing.
 - Parses CSV files with automatic header detection, delimiter configuration, and string label encoding
 - `normalize()` — min-max scaling per feature to `[0, 1]`
 - `standardize()` — Z-score scaling per feature to zero mean, unit variance
-- `split(ratio)` — random train/test split; normalization should be applied **after** splitting to each subset independently to avoid data leakage
+- `split(ratio)` — random train/test split; normalize the training subset **after** splitting, then apply its saved min/max values to the test subset to avoid data leakage
 - `oneHotEncode()` — converts integer class labels into one-hot row vectors for multi-class output
 
 ### Evaluator
@@ -358,11 +358,11 @@ int main() {
     DataLoader loader;
     loader.loadCSV("data/dataset.csv", -1, true, ',');
 
-    // 2. Preprocess: encode labels, split, then normalize each split
+    // 2. Encode labels, split, and reuse training-set scaling
     loader.oneHotEncode();
     auto [trainSet, testSet] = loader.split(0.8, true);
     trainSet.normalize();
-    testSet.normalize();
+    testSet.applyNormalization(trainSet.getMinValues(), trainSet.getMaxValues());
 
     int inputSize  = trainSet.getNumFeatures();
     int outputSize = trainSet.getNumTargets();
@@ -404,3 +404,34 @@ cmake --build build --target miniann_tests
 # Windows
 .\build\Debug\miniann_tests.exe
 ```
+
+
+## Saved-model training and prediction
+
+Run `./build/miniann_demo` to choose between training a new model and loading a
+saved model for CSV or interactive single-sample prediction. The training menu
+also lets you choose MSE, binary cross-entropy, or categorical cross-entropy.
+Existing positional CLI arguments still run training directly:
+
+```bash
+./build/miniann_demo data/sample_dataset.csv 30 0.01 16 64,32
+```
+
+Every training run creates a separate folder under `saved_models/<dataset>/`
+(with a numeric suffix when the folder already exists), containing:
+
+- `model.txt`: architecture, loss, optimizer settings, weights, and biases.
+- `metadata.txt`: feature names, target labels, and training-set min/max values.
+- `layer_*_weights.csv` and `layer_*_biases.csv`: exported matrices.
+- `weights_and_biases.txt` and `test_results.txt`: readable parameter and evaluation reports.
+
+The two saved-model folders supplied with the ZIP are included as examples.
+New models fit min/max scaling on the training split and reuse those values
+for the test split and future predictions. CSV prediction currently expects
+the same feature layout and a final target column, as in the training CSV.
+Categorical feature encodings are inferred anew when loading a CSV, so use the
+same category ordering or numeric encodings for consistent inference.
+
+Saved-model discovery uses the C++17 filesystem API on macOS, Linux, and Windows.
+SoftMax support, optimizer cloning, and normalized binary-cross-entropy gradients
+from the local version remain available.

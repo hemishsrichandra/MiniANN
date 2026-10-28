@@ -12,6 +12,8 @@
 #include <cmath>
 #include <vector>
 #include <memory>
+#include <filesystem>
+#include <chrono>
 
 using namespace std;
 
@@ -207,14 +209,66 @@ bool test_full_end_to_end_pipeline() {
     return true;
 }
 
+bool test_saved_normalization() {
+    cout << "[TEST] Training normalization reused by test and prediction data..." << endl;
+    DataLoader training(Matrix(vector<vector<double>>{{10.0, 20.0}, {5.0, 5.0}}),
+                        Matrix(1, 2, 0.0));
+    training.normalize();
+    DataLoader heldOut(Matrix(vector<vector<double>>{{15.0, 30.0}, {5.0, 7.0}}),
+                       Matrix(1, 2, 0.0));
+    heldOut.applyNormalization(training.getMinValues(), training.getMaxValues());
+    TEST_ASSERT(abs(heldOut.getX()(0, 0) - 0.5) < 1e-12, "Reuse training range");
+    TEST_ASSERT(abs(heldOut.getX()(0, 1) - 2.0) < 1e-12, "Do not fit scaling to held-out data");
+    TEST_ASSERT(abs(heldOut.getX()(1, 1) - 2.0) < 1e-12, "Constant feature scaling stays finite");
+    bool rejected = false;
+    try { heldOut.applyNormalization({0.0}, {1.0}); }
+    catch (const invalid_argument&) { rejected = true; }
+    TEST_ASSERT(rejected, "Reject incomplete scaling metadata");
+    auto split = training.split(0.5, false);
+    TEST_ASSERT(split.first.getMinValues() == training.getMinValues(), "Split preserves scaling metadata");
+    TEST_ASSERT(split.second.getMaxValues() == training.getMaxValues(), "Both splits preserve metadata");
+    cout << "  -> PASSED" << endl;
+    return true;
+}
+
+bool test_softmax_model_roundtrip() {
+    cout << "[TEST] SoftMax persistence retained after merging prediction support..." << endl;
+    NeuralNetwork original;
+    original.addLayer(2, 3, make_shared<SoftMax>(), make_shared<Xavier>());
+    original.setLoss(make_shared<CategoricalCrossEntropy>());
+    Matrix input(2, 2, 0.5);
+    Matrix expected = original.predict(input);
+    auto path = filesystem::temp_directory_path() /
+        ("miniann-roundtrip-" + to_string(chrono::steady_clock::now().time_since_epoch().count()) + ".txt");
+    bool saved = original.saveModel(path.string());
+    NeuralNetwork restored;
+    bool loaded = saved && restored.loadModel(path.string());
+    filesystem::remove(path);
+    TEST_ASSERT(loaded, "Saved model loads successfully");
+    TEST_ASSERT(dynamic_cast<SoftMax*>(restored.getLayers().back().getActivation().get()), "SoftMax activation survives load");
+    Matrix actual = restored.predict(input);
+    for (int c = 0; c < actual.getCols(); ++c) {
+        double total = 0.0;
+        for (int r = 0; r < actual.getRows(); ++r) {
+            TEST_ASSERT(abs(actual(r, c) - expected(r, c)) < 1e-12, "Predictions survive round trip");
+            total += actual(r, c);
+        }
+        TEST_ASSERT(abs(total - 1.0) < 1e-12, "SoftMax probabilities sum to one");
+    }
+    cout << "  -> PASSED" << endl;
+    return true;
+}
+
 int main() {
     cout << "==========================================================" << endl;
     cout << "           MiniANN Integration Test Suite                 " << endl;
     cout << "==========================================================" << endl;
 
     int passed = 0;
-    int total = 6;
+    int total = 8;
 
+    if (test_saved_normalization()) passed++;
+    if (test_softmax_model_roundtrip()) passed++;
     if (test_matrix_layer_integration()) passed++;
     if (test_activation_layer_network()) passed++;
     if (test_loss_optimizers_training()) passed++;
